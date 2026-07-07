@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  packages: read
 
 concurrency:
   group: bot
@@ -18,20 +19,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - uses: docker/login-action@v3
         with:
-          python-version: "3.12"
-
-      - name: Instalar Chromium
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq chromium-browser chromium-chromedriver
-
-      - name: Instalar dependências
-        run: pip install -r requirements.txt
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Executar bot
-        run: python bot/fetch.py
+        run: |
+          docker pull ghcr.io/jonathanabrantes/postandoaquesia-bot:latest
+          docker run --rm \
+            -v "${{ github.workspace }}/data:/app/data" \
+            ghcr.io/jonathanabrantes/postandoaquesia-bot:latest
 
       - name: Commitar CSV atualizado
         run: |

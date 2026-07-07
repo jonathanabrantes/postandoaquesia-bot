@@ -3,6 +3,10 @@ name: pages
 on:
   push:
     branches: [main]
+    paths:
+      - index.html
+      - data/followers.csv
+      - .nojekyll
   workflow_dispatch:
 
 permissions:
@@ -23,11 +27,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Preparar site estático
+        run: |
+          mkdir -p _site/data
+          cp index.html .nojekyll _site/
+          cp data/followers.csv _site/data/
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
 
       - id: deployment
         uses: actions/deploy-pages@v4

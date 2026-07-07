@@ -20,6 +20,13 @@ fi
 
 log() { echo "[$(date -Iseconds)] $*" >> "$LOG_FILE"; }
 
+LOCK_FILE="$LOG_DIR/fetch.lock"
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  log "SKIP: execução anterior ainda rodando"
+  exit 0
+fi
+
 if ! "$PYTHON" "$DIR/bot/fetch.py" >> "$LOG_FILE" 2>&1; then
   log "ERRO: fetch falhou"
   exit 1

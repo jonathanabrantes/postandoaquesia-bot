@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -23,6 +24,7 @@ from data_store import append_snapshot, get_last_snapshot, init_csv
 USERNAME = "postandoaquesia"
 PROFILE_URL = f"https://www.instagram.com/{USERNAME}/"
 API_URL = f"https://www.instagram.com/api/v1/users/web_profile_info/?username={USERNAME}"
+COOKIES_FILE = Path(__file__).parent.parent / ".cookies"
 API_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -55,8 +57,35 @@ def parse_count(raw: str) -> int:
     return int(num_str.replace(",", ""))
 
 
+def load_cookie_header() -> str | None:
+    if COOKIES_FILE.is_file():
+        return COOKIES_FILE.read_text(encoding="utf-8").strip()
+    return os.environ.get("INSTAGRAM_COOKIES")
+
+
+def parse_cookie_pairs(cookie_header: str) -> dict[str, str]:
+    pairs: dict[str, str] = {}
+    for part in cookie_header.split(";"):
+        part = part.strip()
+        if "=" in part:
+            name, value = part.split("=", 1)
+            pairs[name.strip()] = value.strip()
+    return pairs
+
+
+def api_headers() -> dict[str, str]:
+    headers = dict(API_HEADERS)
+    cookie_header = load_cookie_header()
+    if cookie_header:
+        headers["Cookie"] = cookie_header
+        csrf = parse_cookie_pairs(cookie_header).get("csrftoken")
+        if csrf:
+            headers["X-CSRFToken"] = csrf
+    return headers
+
+
 def fetch_followers_api() -> int:
-    req = urllib.request.Request(API_URL, headers=API_HEADERS)
+    req = urllib.request.Request(API_URL, headers=api_headers())
     with urllib.request.urlopen(req, timeout=20) as resp:
         data = json.loads(resp.read().decode())
     return data["data"]["user"]["edge_followed_by"]["count"]
@@ -97,7 +126,17 @@ def create_driver() -> webdriver.Chrome:
     return webdriver.Chrome(service=service, options=opts)
 
 
+def inject_cookies(driver: webdriver.Chrome) -> None:
+    cookie_header = load_cookie_header()
+    if not cookie_header:
+        return
+    driver.get("https://www.instagram.com/")
+    for name, value in parse_cookie_pairs(cookie_header).items():
+        driver.add_cookie({"name": name, "value": value, "domain": ".instagram.com"})
+
+
 def fetch_followers_selenium(driver: webdriver.Chrome) -> int:
+    inject_cookies(driver)
     driver.set_page_load_timeout(40)
     driver.get(PROFILE_URL)
 
@@ -135,12 +174,22 @@ def fetch_followers_selenium(driver: webdriver.Chrome) -> int:
 
 
 def fetch_followers() -> int:
-    try:
-        count = fetch_followers_api()
-        print("Fonte: API", file=sys.stderr)
-        return count
-    except (urllib.error.URLError, KeyError, json.JSONDecodeError, TimeoutError) as e:
-        print(f"API falhou ({e}), tentando Selenium...", file=sys.stderr)
+    for attempt in range(1, 4):
+        try:
+            count = fetch_followers_api()
+            print("Fonte: API", file=sys.stderr)
+            return count
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < 3:
+                wait = 15 * attempt
+                print(f"API rate limit, aguardando {wait}s...", file=sys.stderr)
+                time.sleep(wait)
+                continue
+            print(f"API falhou ({e}), tentando Selenium...", file=sys.stderr)
+            break
+        except (urllib.error.URLError, KeyError, json.JSONDecodeError, TimeoutError) as e:
+            print(f"API falhou ({e}), tentando Selenium...", file=sys.stderr)
+            break
 
     last_error = None
     for attempt in range(1, 3):

@@ -721,6 +721,7 @@
       setDeltaEl(document.getElementById('delta'), stats.last_delta);
       setDeltaEl(document.getElementById('delta1h'), stats.total_delta_1h);
       document.getElementById('count').textContent = fmt(stats.snapshots_count);
+      document.getElementById('viewCount').textContent = fmt(stats.snapshots_count);
 
       document.getElementById('updated').innerHTML = stats.last_update
         ? `<span class="time">Última atualização: ${new Date(stats.last_update).toLocaleString('pt-BR')}</span> · refresh a cada 60s`
@@ -756,21 +757,6 @@
 
     refresh();
     setInterval(refresh, 60000);
-
-    async function trackViews() {
-      try {
-        const url = `${HITS_API}?url=${encodeURIComponent(PAGE_URL)}&title=0&time=1`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data?.totalHits != null) {
-          document.getElementById('viewCount').textContent = data.totalHits.toLocaleString('pt-BR');
-        }
-      } catch {
-        document.getElementById('views').style.display = 'none';
-      }
-    }
-
-    trackViews();
   </script>
 </body>
 </html>

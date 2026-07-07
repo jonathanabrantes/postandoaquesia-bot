@@ -28,7 +28,7 @@ jobs:
       - name: Executar bot
         run: |
           docker pull ghcr.io/jonathanabrantes/postandoaquesia-bot:latest
-          docker run --rm \
+          docker run --rm --shm-size=2g \
             -v "${{ github.workspace }}/data:/app/data" \
             ghcr.io/jonathanabrantes/postandoaquesia-bot:latest
 

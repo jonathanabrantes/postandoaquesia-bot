@@ -4,127 +4,457 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Postando a Quesia — Seguidores</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #0f0f0f;
-      color: #f5f5f5;
-      min-height: 100vh;
-      padding: 2rem;
+    :root {
+      --bg: #0a0a0b;
+      --surface: #141416;
+      --surface-2: #1c1c1f;
+      --border: rgba(255,255,255,0.06);
+      --text: #f4f4f5;
+      --muted: #71717a;
+      --pink: #e1306c;
+      --purple: #833ab4;
+      --orange: #f77737;
+      --yellow: #fcaf45;
+      --green: #22c55e;
+      --red: #ef4444;
+      --gradient: linear-gradient(135deg, #f9ce34, #ee2a7b 45%, #6228d7);
+      --gradient-soft: linear-gradient(135deg, rgba(249,206,52,0.15), rgba(238,42,123,0.15) 45%, rgba(98,40,215,0.15));
+      --radius: 16px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.4);
     }
-    .container { max-width: 1100px; margin: 0 auto; }
-    header { margin-bottom: 2rem; }
-    h1 { font-size: 1.6rem; font-weight: 600; }
-    .subtitle { color: #888; margin-top: 0.3rem; font-size: 0.95rem; }
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .bg-glow {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(238,42,123,0.18), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 0%, rgba(98,40,215,0.12), transparent),
+        radial-gradient(ellipse 50% 30% at 0% 100%, rgba(249,206,52,0.08), transparent);
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 3rem;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
       gap: 1rem;
       margin-bottom: 2rem;
+      flex-wrap: wrap;
     }
-    .card {
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      border-radius: 12px;
-      padding: 1.25rem;
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
     }
-    .card-label { color: #888; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
-    .card-value { font-size: 2rem; font-weight: 700; margin-top: 0.4rem; }
-    .card-value.positive { color: #4ade80; }
-    .card-value.negative { color: #f87171; }
-    .chart-wrap {
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
+
+    .avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--gradient);
+      padding: 2px;
+      flex-shrink: 0;
     }
-    .chart-title { font-size: 1rem; color: #ccc; }
-    .chart-header {
+
+    .avatar-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+
+    .brand h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand p {
+      color: var(--muted);
+      font-size: 0.875rem;
+      margin-top: 0.15rem;
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--green);
+      background: rgba(34,197,94,0.1);
+      border: 1px solid rgba(34,197,94,0.25);
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+    }
+
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    .btn-ig {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.1rem;
+      border-radius: 10px;
+      background: var(--gradient);
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 2px 12px rgba(238,42,123,0.35);
+    }
+
+    .btn-ig:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(238,42,123,0.45);
+    }
+
+    /* Hero */
+    .hero {
+      background: var(--gradient-soft);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2rem 1.75rem;
+      margin-bottom: 1.25rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--gradient);
+      opacity: 0.04;
+    }
+
+    .hero-label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+      position: relative;
+    }
+
+    .hero-count {
+      font-size: clamp(2.8rem, 10vw, 4.2rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.1;
+      position: relative;
+      transition: opacity 0.3s;
+    }
+
+    .hero-sub {
+      margin-top: 0.75rem;
+      font-size: 0.95rem;
+      color: var(--muted);
+      position: relative;
+    }
+
+    .hero-sub strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .hero-sub .up { color: var(--green); }
+    .hero-sub .down { color: var(--red); }
+
+    /* Stats grid */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    @media (max-width: 600px) {
+      .stats { grid-template-columns: 1fr; }
+    }
+
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.25rem;
+      transition: border-color 0.2s;
+    }
+
+    .stat:hover { border-color: rgba(255,255,255,0.1); }
+
+    .stat-icon {
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+      opacity: 0.9;
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .stat-value {
+      font-size: 1.65rem;
+      font-weight: 700;
+      margin-top: 0.25rem;
+      letter-spacing: -0.02em;
+    }
+
+    .stat-value.positive { color: var(--green); }
+    .stat-value.negative { color: var(--red); }
+
+    .stat-hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+
+    /* Charts */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.35rem 1.25rem 1rem;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .panel-head {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 1rem;
-      margin-bottom: 1rem;
+      margin-bottom: 1.25rem;
       flex-wrap: wrap;
     }
-    .group-btns {
+
+    .panel-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .panel-desc {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+
+    .seg {
       display: flex;
-      gap: 0.4rem;
-      flex-wrap: wrap;
+      background: var(--surface-2);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 2px;
     }
-    .group-btns button {
-      background: #222;
-      border: 1px solid #333;
-      color: #aaa;
-      padding: 0.35rem 0.75rem;
+
+    .seg button {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 0.4rem 0.75rem;
       border-radius: 8px;
       cursor: pointer;
-      font-size: 0.8rem;
       transition: all 0.15s;
     }
-    .group-btns button:hover { border-color: #e1306c; color: #fff; }
-    .group-btns button.active {
-      background: #e1306c22;
-      border-color: #e1306c;
-      color: #e1306c;
+
+    .seg button:hover { color: var(--text); }
+
+    .seg button.active {
+      background: var(--surface);
+      color: var(--pink);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
     }
-    canvas { max-height: 400px; }
-    .updated { color: #666; font-size: 0.85rem; text-align: center; }
-    a { color: #e1306c; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+
+    .chart-box {
+      position: relative;
+      height: 280px;
+    }
+
+    .chart-box.tall { height: 300px; }
+
+    /* Empty state */
+    .empty {
+      display: none;
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--muted);
+    }
+
+    .empty.show { display: block; }
+    .empty-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+    .empty h2 { font-size: 1.1rem; color: var(--text); margin-bottom: 0.5rem; }
+
+    .dashboard { transition: opacity 0.3s; }
+    .dashboard.hidden { display: none; }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .footer .time { color: #a1a1aa; }
+
+    /* Loading shimmer */
+    .loading .hero-count {
+      background: linear-gradient(90deg, #2a2a2e 25%, #3f3f46 50%, #2a2a2e 75%);
+      background-size: 200% 100%;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer 1.5s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>📈 @postandoaquesia</h1>
-      <p class="subtitle">
-        Monitoramento de seguidores em tempo real —
-        <a href="https://www.instagram.com/postandoaquesia/reels/" target="_blank">ver perfil</a>
-      </p>
-    </header>
-
-    <div class="cards">
-      <div class="card">
-        <div class="card-label">Seguidores</div>
-        <div class="card-value" id="followers">—</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Última leitura</div>
-        <div class="card-value" id="delta">—</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Última hora</div>
-        <div class="card-value" id="delta1h">—</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Leituras</div>
-        <div class="card-value" id="count">—</div>
-      </div>
-    </div>
-
-    <div class="chart-wrap">
-      <div class="chart-header">
-        <div class="chart-title" id="deltaChartTitle">Novos seguidores por minuto</div>
-        <div class="group-btns" id="groupBtns">
-          <button data-group="1" class="active">1 min</button>
-          <button data-group="15">15 min</button>
-          <button data-group="30">30 min</button>
-          <button data-group="60">1 h</button>
+  <div class="bg-glow"></div>
+  <div class="wrap">
+    <header class="header">
+      <div class="brand">
+        <div class="avatar"><div class="avatar-inner">🥭</div></div>
+        <div>
+          <h1>@postandoaquesia</h1>
+          <p>Postando a Quesia</p>
         </div>
       </div>
-      <canvas id="deltaChart"></canvas>
+      <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+        <span class="live-badge" id="liveBadge" style="display:none">
+          <span class="live-dot"></span> Ao vivo
+        </span>
+        <a class="btn-ig" href="https://www.instagram.com/postandoaquesia/reels/" target="_blank" rel="noopener">
+          Ver no Instagram ↗
+        </a>
+      </div>
+    </header>
+
+    <div class="empty" id="empty">
+      <div class="empty-icon">📊</div>
+      <h2>Aguardando dados</h2>
+      <p>O bot coleta seguidores a cada minuto.<br>Volte em breve!</p>
     </div>
 
-    <div class="chart-wrap">
-      <div class="chart-title">Total de seguidores</div>
-      <canvas id="followersChart"></canvas>
+    <div class="dashboard" id="dashboard">
+      <section class="hero loading" id="hero">
+        <div class="hero-label">Total de seguidores</div>
+        <div class="hero-count" id="heroCount">—</div>
+        <p class="hero-sub" id="heroSub">Carregando...</p>
+      </section>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-icon">⚡</div>
+          <div class="stat-label">Última leitura</div>
+          <div class="stat-value" id="delta">—</div>
+          <div class="stat-hint">desde o minuto anterior</div>
+        </div>
+        <div class="stat">
+          <div class="stat-icon">🕐</div>
+          <div class="stat-label">Última hora</div>
+          <div class="stat-value" id="delta1h">—</div>
+          <div class="stat-hint">soma dos deltas</div>
+        </div>
+        <div class="stat">
+          <div class="stat-icon">📡</div>
+          <div class="stat-label">Leituras</div>
+          <div class="stat-value" id="count" style="color:var(--text)">—</div>
+          <div class="stat-hint">pontos no gráfico</div>
+        </div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title" id="deltaChartTitle">Novos seguidores por minuto</div>
+            <div class="panel-desc">Quanto chegou em cada intervalo</div>
+          </div>
+          <div class="seg" id="groupBtns">
+            <button data-group="1" class="active">1m</button>
+            <button data-group="15">15m</button>
+            <button data-group="30">30m</button>
+            <button data-group="60">1h</button>
+          </div>
+        </div>
+        <div class="chart-box">
+          <canvas id="deltaChart"></canvas>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">Evolução total</div>
+            <div class="panel-desc">Crescimento ao longo do tempo</div>
+          </div>
+        </div>
+        <div class="chart-box tall">
+          <canvas id="followersChart"></canvas>
+        </div>
+      </section>
     </div>
 
-    <p class="updated" id="updated">Carregando...</p>
+    <p class="footer" id="updated">Carregando dados...</p>
   </div>
 
   <script>
@@ -132,38 +462,74 @@
     const fmt = (n) => n.toLocaleString('pt-BR');
     const fmtDelta = (n) => (n >= 0 ? '+' : '') + fmt(n);
 
-    const chartDefaults = {
+    const gridColor = 'rgba(255,255,255,0.04)';
+    const tickColor = '#52525b';
+
+    const chartBase = {
       responsive: true,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#1a1a1a',
-          borderColor: '#333',
+          backgroundColor: '#1c1c1f',
+          borderColor: 'rgba(255,255,255,0.1)',
           borderWidth: 1,
-          titleColor: '#aaa',
-          bodyColor: '#f5f5f5',
-          padding: 12,
+          titleColor: '#a1a1aa',
+          bodyColor: '#f4f4f5',
+          bodyFont: { family: 'DM Sans', size: 13, weight: '600' },
+          titleFont: { family: 'DM Sans', size: 12 },
+          padding: 14,
+          cornerRadius: 10,
           displayColors: false,
         }
       },
       scales: {
-        x: { ticks: { color: '#666', maxTicksLimit: 12 }, grid: { color: '#222' } },
-        y: { ticks: { color: '#666' }, grid: { color: '#222' } }
+        x: {
+          ticks: { color: tickColor, maxTicksLimit: 10, font: { family: 'DM Sans', size: 11 } },
+          grid: { color: gridColor },
+          border: { display: false }
+        },
+        y: {
+          ticks: { color: tickColor, font: { family: 'DM Sans', size: 11 } },
+          grid: { color: gridColor },
+          border: { display: false }
+        }
       }
+    };
+
+    const gradPink = (ctx) => {
+      const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 280);
+      g.addColorStop(0, 'rgba(238,42,123,0.9)');
+      g.addColorStop(1, 'rgba(98,40,215,0.5)');
+      return g;
+    };
+
+    const gradGreen = (ctx) => {
+      const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 300);
+      g.addColorStop(0, 'rgba(34,197,94,0.35)');
+      g.addColorStop(1, 'rgba(34,197,94,0)');
+      return g;
     };
 
     const deltaChart = new Chart(document.getElementById('deltaChart'), {
       type: 'bar',
-      data: { labels: [], datasets: [{ data: [], backgroundColor: '#e1306c88', borderColor: '#e1306c', borderWidth: 1, hoverBackgroundColor: '#e1306c', hoverBorderColor: '#fff' }] },
+      data: {
+        labels: [],
+        datasets: [{
+          data: [],
+          backgroundColor: (ctx) => gradPink(ctx),
+          hoverBackgroundColor: '#ee2a7b',
+          borderRadius: 6,
+          borderSkipped: false,
+        }]
+      },
       options: {
-        ...chartDefaults,
+        ...chartBase,
         plugins: {
-          ...chartDefaults.plugins,
+          ...chartBase.plugins,
           tooltip: {
-            ...chartDefaults.plugins.tooltip,
-            borderColor: '#e1306c',
+            ...chartBase.plugins.tooltip,
             callbacks: {
               title: (items) => items[0]?.label || '',
               label: (ctx) => fmtDelta(ctx.parsed.y) + ' seguidores',
@@ -175,113 +541,132 @@
 
     const followersChart = new Chart(document.getElementById('followersChart'), {
       type: 'line',
-      data: { labels: [], datasets: [{ data: [], borderColor: '#4ade80', backgroundColor: '#4ade8022', fill: true, tension: 0.3, pointRadius: 0, pointHoverRadius: 7, pointHoverBackgroundColor: '#4ade80', pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2 }] },
+      data: {
+        labels: [],
+        datasets: [{
+          data: [],
+          borderColor: '#22c55e',
+          borderWidth: 2.5,
+          backgroundColor: (ctx) => gradGreen(ctx),
+          fill: true,
+          tension: 0.35,
+          pointRadius: 0,
+          pointHoverRadius: 8,
+          pointHoverBackgroundColor: '#22c55e',
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 2,
+        }]
+      },
       options: {
-        ...chartDefaults,
+        ...chartBase,
         plugins: {
-          ...chartDefaults.plugins,
+          ...chartBase.plugins,
           tooltip: {
-            ...chartDefaults.plugins.tooltip,
-            borderColor: '#4ade80',
+            ...chartBase.plugins.tooltip,
             callbacks: {
               title: (items) => items[0]?.label || '',
               label: (ctx) => fmt(ctx.parsed.y) + ' seguidores',
             }
           }
         },
-        elements: {
-          point: { radius: 0, hoverRadius: 7, hoverBorderWidth: 2 }
-        }
+        elements: { point: { radius: 0, hoverRadius: 8, hoverBorderWidth: 2 } }
       }
     });
 
     let rawHistory = [];
     let groupMinutes = 1;
+    let prevFollowers = null;
 
-    const GROUP_LABELS = {
-      1: 'por minuto',
-      15: 'a cada 15 min',
-      30: 'a cada 30 min',
-      60: 'por hora',
-    };
+    const GROUP_LABELS = { 1: 'por minuto', 15: 'a cada 15 min', 30: 'a cada 30 min', 60: 'por hora' };
 
     function parseCsv(text) {
       const lines = text.trim().split('\n');
       if (lines.length < 2) return [];
-      return lines.slice(1).map((line) => {
+      return lines.slice(1).filter(Boolean).map((line) => {
         const [timestamp, followers, delta] = line.split(',');
-        return {
-          timestamp,
-          followers: Number(followers),
-          delta: Number(delta),
-        };
+        return { timestamp, followers: Number(followers), delta: Number(delta) };
       });
     }
 
     function computeStats(history) {
-      if (!history.length) {
-        return { followers: 0, last_delta: 0, last_update: null, total_delta_1h: 0, snapshots_count: 0 };
-      }
+      if (!history.length) return null;
       const last = history[history.length - 1];
-      const oneHourAgo = Date.now() - 60 * 60 * 1000;
+      const oneHourAgo = Date.now() - 3600000;
       const total_delta_1h = history
         .filter((h) => new Date(h.timestamp).getTime() >= oneHourAgo)
-        .reduce((sum, h) => sum + h.delta, 0);
+        .reduce((s, h) => s + h.delta, 0);
+      const first = history[0];
+      const totalGrowth = last.followers - first.followers;
       return {
         followers: last.followers,
         last_delta: last.delta,
         last_update: last.timestamp,
         total_delta_1h,
+        totalGrowth,
         snapshots_count: history.length,
       };
     }
 
-    function floorToBucket(date, intervalMinutes) {
+    function floorToBucket(date, mins) {
       const d = new Date(date);
       d.setSeconds(0, 0);
-      if (intervalMinutes >= 60) {
-        d.setMinutes(0);
-      } else if (intervalMinutes === 30) {
-        d.setMinutes(Math.floor(d.getMinutes() / 30) * 30);
-      } else if (intervalMinutes === 15) {
-        d.setMinutes(Math.floor(d.getMinutes() / 15) * 15);
-      }
+      if (mins >= 60) d.setMinutes(0);
+      else if (mins === 30) d.setMinutes(Math.floor(d.getMinutes() / 30) * 30);
+      else if (mins === 15) d.setMinutes(Math.floor(d.getMinutes() / 15) * 15);
       return d;
     }
 
-    function formatBucketLabel(bucketStart, intervalMinutes) {
-      const start = new Date(bucketStart);
-      if (intervalMinutes === 1) {
-        return start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      }
-      const end = new Date(start.getTime() + intervalMinutes * 60000 - 60000);
-      const fmtTime = (d) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      if (intervalMinutes >= 60) return fmtTime(start);
-      return fmtTime(start) + '–' + fmtTime(end);
+    function formatBucketLabel(start, mins) {
+      const s = new Date(start);
+      const t = (d) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      if (mins === 1) return t(s);
+      if (mins >= 60) return t(s);
+      const e = new Date(s.getTime() + mins * 60000 - 60000);
+      return t(s) + ' – ' + t(e);
     }
 
-    function groupHistory(history, intervalMinutes) {
+    function groupHistory(history, mins) {
       const buckets = new Map();
       for (const h of history) {
-        const bucket = floorToBucket(h.timestamp, intervalMinutes);
-        const key = bucket.getTime();
-        if (!buckets.has(key)) {
-          buckets.set(key, { bucketStart: bucket.toISOString(), delta: 0 });
-        }
-        buckets.get(key).delta += h.delta;
+        const b = floorToBucket(h.timestamp, mins);
+        const k = b.getTime();
+        if (!buckets.has(k)) buckets.set(k, { bucketStart: b.toISOString(), delta: 0 });
+        buckets.get(k).delta += h.delta;
       }
-      return Array.from(buckets.entries())
-        .sort((a, b) => a[0] - b[0])
-        .map(([, v]) => v);
+      return [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+    }
+
+    function setDeltaEl(el, val) {
+      el.textContent = fmtDelta(val);
+      el.className = 'stat-value ' + (val >= 0 ? 'positive' : 'negative');
+    }
+
+    function animateCount(el, target) {
+      if (prevFollowers === null) {
+        el.textContent = fmt(target);
+        prevFollowers = target;
+        return;
+      }
+      const start = prevFollowers;
+      const diff = target - start;
+      const duration = 600;
+      const t0 = performance.now();
+      function step(now) {
+        const p = Math.min((now - t0) / duration, 1);
+        const ease = 1 - Math.pow(1 - p, 3);
+        el.textContent = fmt(Math.round(start + diff * ease));
+        if (p < 1) requestAnimationFrame(step);
+        else prevFollowers = target;
+      }
+      requestAnimationFrame(step);
     }
 
     function updateDeltaChart() {
       const grouped = groupHistory(rawHistory, groupMinutes);
       deltaChart.data.labels = grouped.map((g) => formatBucketLabel(g.bucketStart, groupMinutes));
       deltaChart.data.datasets[0].data = grouped.map((g) => g.delta);
-      deltaChart.update();
-      document.getElementById('deltaChartTitle').textContent =
-        'Novos seguidores ' + GROUP_LABELS[groupMinutes];
+      deltaChart.update('none');
+      document.getElementById('deltaChartTitle').textContent = 'Novos seguidores ' + GROUP_LABELS[groupMinutes];
     }
 
     function formatTime(iso) {
@@ -290,20 +675,32 @@
 
     function render(history) {
       const stats = computeStats(history);
-      document.getElementById('followers').textContent = fmt(stats.followers);
+      if (!stats) {
+        document.getElementById('empty').classList.add('show');
+        document.getElementById('dashboard').classList.add('hidden');
+        document.getElementById('liveBadge').style.display = 'none';
+        return;
+      }
 
-      const deltaEl = document.getElementById('delta');
-      deltaEl.textContent = fmtDelta(stats.last_delta);
-      deltaEl.className = 'card-value ' + (stats.last_delta >= 0 ? 'positive' : 'negative');
+      document.getElementById('empty').classList.remove('show');
+      document.getElementById('dashboard').classList.remove('hidden');
+      document.getElementById('liveBadge').style.display = 'inline-flex';
+      document.getElementById('hero').classList.remove('loading');
 
-      const delta1hEl = document.getElementById('delta1h');
-      delta1hEl.textContent = fmtDelta(stats.total_delta_1h);
-      delta1hEl.className = 'card-value ' + (stats.total_delta_1h >= 0 ? 'positive' : 'negative');
+      animateCount(document.getElementById('heroCount'), stats.followers);
 
+      const sub = document.getElementById('heroSub');
+      const dClass = stats.last_delta >= 0 ? 'up' : 'down';
+      sub.innerHTML = `<strong class="${dClass}">${fmtDelta(stats.last_delta)}</strong> na última leitura`
+        + (stats.totalGrowth ? ` · <strong>${fmtDelta(stats.totalGrowth)}</strong> desde o início` : '');
+
+      setDeltaEl(document.getElementById('delta'), stats.last_delta);
+      setDeltaEl(document.getElementById('delta1h'), stats.total_delta_1h);
       document.getElementById('count').textContent = fmt(stats.snapshots_count);
-      document.getElementById('updated').textContent = stats.last_update
-        ? 'Última leitura: ' + new Date(stats.last_update).toLocaleString('pt-BR') + ' — atualiza a cada 60s'
-        : 'Aguardando primeira leitura do bot...';
+
+      document.getElementById('updated').innerHTML = stats.last_update
+        ? `<span class="time">Última atualização: ${new Date(stats.last_update).toLocaleString('pt-BR')}</span> · refresh a cada 60s`
+        : 'Aguardando leituras...';
 
       rawHistory = history;
       updateDeltaChart();
@@ -311,7 +708,7 @@
       const labels = history.map((h) => formatTime(h.timestamp));
       followersChart.data.labels = labels;
       followersChart.data.datasets[0].data = history.map((h) => h.followers);
-      followersChart.update();
+      followersChart.update('none');
     }
 
     document.getElementById('groupBtns').addEventListener('click', (e) => {
@@ -326,11 +723,10 @@
     async function refresh() {
       try {
         const res = await fetch(DATA_URL + '?t=' + Date.now());
-        if (!res.ok) throw new Error('CSV não encontrado');
-        const history = parseCsv(await res.text());
-        render(history);
+        if (!res.ok) throw new Error('arquivo não encontrado');
+        render(parseCsv(await res.text()));
       } catch (err) {
-        document.getElementById('updated').textContent = 'Erro ao carregar dados: ' + err.message;
+        document.getElementById('updated').textContent = 'Erro ao carregar: ' + err.message;
       }
     }
 

@@ -36,6 +36,22 @@ def parse_count(raw: str) -> int:
     return int(num_str.replace(",", ""))
 
 
+CHROME_CANDIDATES = (
+    "/usr/bin/chromium-browser",
+    "/usr/bin/chromium",
+    "/snap/bin/chromium",
+    "/usr/bin/google-chrome",
+)
+CHROMEDRIVER_CANDIDATES = ("/usr/bin/chromedriver",)
+
+
+def _first_existing(paths: tuple[str, ...]) -> str | None:
+    for path in paths:
+        if path and os.path.isfile(path):
+            return path
+    return None
+
+
 def create_driver() -> webdriver.Chrome:
     opts = Options()
     opts.add_argument("--headless=new")
@@ -47,13 +63,19 @@ def create_driver() -> webdriver.Chrome:
     opts.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_bin = (
         os.environ.get("CHROME_BIN")
+        or _first_existing(CHROME_CANDIDATES)
         or shutil.which("chromium-browser")
         or shutil.which("chromium")
         or shutil.which("google-chrome")
     )
-    if chrome_bin:
-        opts.binary_location = chrome_bin
-    driver_path = os.environ.get("CHROMEDRIVER") or shutil.which("chromedriver")
+    if not chrome_bin:
+        raise WebDriverException("Chromium não encontrado")
+    opts.binary_location = chrome_bin
+    driver_path = (
+        os.environ.get("CHROMEDRIVER")
+        or _first_existing(CHROMEDRIVER_CANDIDATES)
+        or shutil.which("chromedriver")
+    )
     service = Service(driver_path) if driver_path else Service()
     return webdriver.Chrome(service=service, options=opts)
 

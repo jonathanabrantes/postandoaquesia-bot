@@ -8,6 +8,10 @@ LOG_DIR="$DIR/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/fetch.log"
 
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"
+export CHROME_BIN="/usr/bin/chromium-browser"
+export CHROMEDRIVER="/usr/bin/chromedriver"
+
 if [ -d "$DIR/.venv" ]; then
   PYTHON="$DIR/.venv/bin/python3"
 else

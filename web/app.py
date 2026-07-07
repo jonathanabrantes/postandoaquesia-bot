@@ -1,0 +1,338 @@
+#!/usr/bin/env python3
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from flask import Flask, jsonify, render_template_string
+
+from db import get_history, get_stats, init_db
+
+app = Flask(__name__)
+
+HTML = """<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Postando a Quesia — Seguidores</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0f0f0f;
+      color: #f5f5f5;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    .container { max-width: 1100px; margin: 0 auto; }
+    header { margin-bottom: 2rem; }
+    h1 { font-size: 1.6rem; font-weight: 600; }
+    .subtitle { color: #888; margin-top: 0.3rem; font-size: 0.95rem; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+    .card-label { color: #888; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .card-value { font-size: 2rem; font-weight: 700; margin-top: 0.4rem; }
+    .card-value.positive { color: #4ade80; }
+    .card-value.negative { color: #f87171; }
+    .chart-wrap {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .chart-title { font-size: 1rem; color: #ccc; }
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .group-btns {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+    .group-btns button {
+      background: #222;
+      border: 1px solid #333;
+      color: #aaa;
+      padding: 0.35rem 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.15s;
+    }
+    .group-btns button:hover { border-color: #e1306c; color: #fff; }
+    .group-btns button.active {
+      background: #e1306c22;
+      border-color: #e1306c;
+      color: #e1306c;
+    }
+    canvas { max-height: 400px; }
+    .updated { color: #666; font-size: 0.85rem; text-align: center; }
+    a { color: #e1306c; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📈 @postandoaquesia</h1>
+      <p class="subtitle">
+        Monitoramento de seguidores em tempo real —
+        <a href="https://www.instagram.com/postandoaquesia/reels/" target="_blank">ver perfil</a>
+      </p>
+    </header>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">Seguidores</div>
+        <div class="card-value" id="followers">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Último minuto</div>
+        <div class="card-value" id="delta">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Última hora</div>
+        <div class="card-value" id="delta1h">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Leituras</div>
+        <div class="card-value" id="count">—</div>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <div class="chart-title" id="deltaChartTitle">Novos seguidores por minuto</div>
+        <div class="group-btns" id="groupBtns">
+          <button data-group="1" class="active">1 min</button>
+          <button data-group="15">15 min</button>
+          <button data-group="30">30 min</button>
+          <button data-group="60">1 h</button>
+        </div>
+      </div>
+      <canvas id="deltaChart"></canvas>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="chart-title">Total de seguidores</div>
+      <canvas id="followersChart"></canvas>
+    </div>
+
+    <p class="updated" id="updated">Atualizando...</p>
+  </div>
+
+  <script>
+    const fmt = (n) => n.toLocaleString('pt-BR');
+    const fmtDelta = (n) => (n >= 0 ? '+' : '') + fmt(n);
+
+    const chartDefaults = {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a1a',
+          borderColor: '#333',
+          borderWidth: 1,
+          titleColor: '#aaa',
+          bodyColor: '#f5f5f5',
+          padding: 12,
+          displayColors: false,
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#666', maxTicksLimit: 12 }, grid: { color: '#222' } },
+        y: { ticks: { color: '#666' }, grid: { color: '#222' } }
+      }
+    };
+
+    const deltaChart = new Chart(document.getElementById('deltaChart'), {
+      type: 'bar',
+      data: { labels: [], datasets: [{ data: [], backgroundColor: '#e1306c88', borderColor: '#e1306c', borderWidth: 1, hoverBackgroundColor: '#e1306c', hoverBorderColor: '#fff' }] },
+      options: {
+        ...chartDefaults,
+        plugins: {
+          ...chartDefaults.plugins,
+          tooltip: {
+            ...chartDefaults.plugins.tooltip,
+            borderColor: '#e1306c',
+            callbacks: {
+              title: (items) => items[0]?.label || '',
+              label: (ctx) => fmtDelta(ctx.parsed.y) + ' seguidores',
+            }
+          }
+        }
+      }
+    });
+
+    const followersChart = new Chart(document.getElementById('followersChart'), {
+      type: 'line',
+      data: { labels: [], datasets: [{ data: [], borderColor: '#4ade80', backgroundColor: '#4ade8022', fill: true, tension: 0.3, pointRadius: 0, pointHoverRadius: 7, pointHoverBackgroundColor: '#4ade80', pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2 }] },
+      options: {
+        ...chartDefaults,
+        plugins: {
+          ...chartDefaults.plugins,
+          tooltip: {
+            ...chartDefaults.plugins.tooltip,
+            borderColor: '#4ade80',
+            callbacks: {
+              title: (items) => items[0]?.label || '',
+              label: (ctx) => fmt(ctx.parsed.y) + ' seguidores',
+            }
+          }
+        },
+        elements: {
+          point: { radius: 0, hoverRadius: 7, hoverBorderWidth: 2 }
+        }
+      }
+    });
+
+    let rawHistory = [];
+    let groupMinutes = 1;
+
+    const GROUP_LABELS = {
+      1: 'por minuto',
+      15: 'a cada 15 min',
+      30: 'a cada 30 min',
+      60: 'por hora',
+    };
+
+    function floorToBucket(date, intervalMinutes) {
+      const d = new Date(date);
+      d.setSeconds(0, 0);
+      if (intervalMinutes >= 60) {
+        d.setMinutes(0);
+      } else if (intervalMinutes === 30) {
+        d.setMinutes(Math.floor(d.getMinutes() / 30) * 30);
+      } else if (intervalMinutes === 15) {
+        d.setMinutes(Math.floor(d.getMinutes() / 15) * 15);
+      }
+      return d;
+    }
+
+    function formatBucketLabel(bucketStart, intervalMinutes) {
+      const start = new Date(bucketStart);
+      if (intervalMinutes === 1) {
+        return start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      }
+      const end = new Date(start.getTime() + intervalMinutes * 60000 - 60000);
+      const fmt = (d) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      if (intervalMinutes >= 60) return fmt(start);
+      return fmt(start) + '–' + fmt(end);
+    }
+
+    function groupHistory(history, intervalMinutes) {
+      const buckets = new Map();
+      for (const h of history) {
+        const bucket = floorToBucket(h.timestamp, intervalMinutes);
+        const key = bucket.getTime();
+        if (!buckets.has(key)) {
+          buckets.set(key, { bucketStart: bucket.toISOString(), delta: 0 });
+        }
+        buckets.get(key).delta += h.delta;
+      }
+      return Array.from(buckets.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([, v]) => v);
+    }
+
+    function updateDeltaChart() {
+      const grouped = groupHistory(rawHistory, groupMinutes);
+      deltaChart.data.labels = grouped.map(g => formatBucketLabel(g.bucketStart, groupMinutes));
+      deltaChart.data.datasets[0].data = grouped.map(g => g.delta);
+      deltaChart.update();
+      document.getElementById('deltaChartTitle').textContent =
+        'Novos seguidores ' + GROUP_LABELS[groupMinutes];
+    }
+
+    document.getElementById('groupBtns').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-group]');
+      if (!btn) return;
+      groupMinutes = parseInt(btn.dataset.group, 10);
+      document.querySelectorAll('#groupBtns button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateDeltaChart();
+    });
+    function formatTime(iso) {
+      const d = new Date(iso);
+      return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function refresh() {
+      const [stats, history] = await Promise.all([
+        fetch('/api/stats').then(r => r.json()),
+        fetch('/api/history?limit=1440').then(r => r.json())
+      ]);
+
+      document.getElementById('followers').textContent = fmt(stats.followers);
+      const deltaEl = document.getElementById('delta');
+      deltaEl.textContent = fmtDelta(stats.last_delta);
+      deltaEl.className = 'card-value ' + (stats.last_delta >= 0 ? 'positive' : 'negative');
+
+      const delta1hEl = document.getElementById('delta1h');
+      delta1hEl.textContent = fmtDelta(stats.total_delta_1h);
+      delta1hEl.className = 'card-value ' + (stats.total_delta_1h >= 0 ? 'positive' : 'negative');
+
+      document.getElementById('count').textContent = fmt(stats.snapshots_count);
+      document.getElementById('updated').textContent = stats.last_update
+        ? 'Última leitura: ' + new Date(stats.last_update).toLocaleString('pt-BR') + ' — atualiza a cada 30s'
+        : 'Aguardando primeira leitura do bot...';
+
+      rawHistory = history;
+      updateDeltaChart();
+
+      const labels = history.map(h => formatTime(h.timestamp));
+      followersChart.data.labels = labels;
+      followersChart.data.datasets[0].data = history.map(h => h.followers);
+      followersChart.update();
+    }
+
+    refresh();
+    setInterval(refresh, 30000);
+  </script>
+</body>
+</html>"""
+
+
+@app.route("/")
+def index():
+    return render_template_string(HTML)
+
+
+@app.route("/api/stats")
+def api_stats():
+    init_db()
+    return jsonify(get_stats())
+
+
+@app.route("/api/history")
+def api_history():
+    from flask import request
+
+    init_db()
+    limit = request.args.get("limit", 1440, type=int)
+    return jsonify(get_history(limit))
+
+
+if __name__ == "__main__":
+    init_db()
+    app.run(host="0.0.0.0", port=8787, debug=False)

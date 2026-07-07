@@ -15,7 +15,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from db import get_last_snapshot, init_db, insert_snapshot
+from data_store import append_snapshot, get_last_snapshot, init_csv
 
 USERNAME = "postandoaquesia"
 PROFILE_URL = f"https://www.instagram.com/{USERNAME}/"
@@ -72,7 +72,6 @@ def fetch_followers(driver: webdriver.Chrome) -> int:
                 return parse_count(title)
         return None
 
-    # Instagram renderiza o número exato via JS após o carregamento inicial
     try:
         WebDriverWait(driver, 15).until(lambda d: _extract_count() is not None)
     except TimeoutException:
@@ -82,14 +81,12 @@ def fetch_followers(driver: webdriver.Chrome) -> int:
     if exact is not None:
         return exact
 
-    # Fallback: meta og:description — "898K Followers, ..."
     meta = driver.find_element(By.CSS_SELECTOR, 'meta[property="og:description"]')
     content = meta.get_attribute("content") or ""
     match = re.search(r"([\d.,]+[kmb]?)\s*followers", content, re.I)
     if match:
         return parse_count(match.group(1))
 
-    # Fallback: texto visível na página
     for el in driver.find_elements(
         By.XPATH,
         '//*[contains(translate(text(),"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz"),"follower") '
@@ -104,7 +101,7 @@ def fetch_followers(driver: webdriver.Chrome) -> int:
 
 
 def main():
-    init_db()
+    init_csv()
     driver = None
     try:
         driver = create_driver()
@@ -118,10 +115,10 @@ def main():
 
     last = get_last_snapshot()
     delta = followers - last["followers"] if last else 0
-    ts = insert_snapshot(followers, delta)
+    ts = append_snapshot(followers, delta)
 
     sign = "+" if delta >= 0 else ""
-    print(f"[{ts}] @{USERNAME}: {followers:,} seguidores ({sign}{delta} no minuto)")
+    print(f"[{ts}] @{USERNAME}: {followers:,} seguidores ({sign}{delta})")
 
 
 if __name__ == "__main__":

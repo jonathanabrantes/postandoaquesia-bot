@@ -1,16 +1,4 @@
-#!/usr/bin/env python3
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from flask import Flask, jsonify, render_template_string
-
-from db import get_history, get_stats, init_db
-
-app = Flask(__name__)
-
-HTML = """<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -105,7 +93,7 @@ HTML = """<!DOCTYPE html>
         <div class="card-value" id="followers">—</div>
       </div>
       <div class="card">
-        <div class="card-label">Último minuto</div>
+        <div class="card-label">Última leitura</div>
         <div class="card-value" id="delta">—</div>
       </div>
       <div class="card">
@@ -136,10 +124,11 @@ HTML = """<!DOCTYPE html>
       <canvas id="followersChart"></canvas>
     </div>
 
-    <p class="updated" id="updated">Atualizando...</p>
+    <p class="updated" id="updated">Carregando...</p>
   </div>
 
   <script>
+    const DATA_URL = 'data/followers.csv';
     const fmt = (n) => n.toLocaleString('pt-BR');
     const fmtDelta = (n) => (n >= 0 ? '+' : '') + fmt(n);
 
@@ -216,6 +205,37 @@ HTML = """<!DOCTYPE html>
       60: 'por hora',
     };
 
+    function parseCsv(text) {
+      const lines = text.trim().split('\n');
+      if (lines.length < 2) return [];
+      return lines.slice(1).map((line) => {
+        const [timestamp, followers, delta] = line.split(',');
+        return {
+          timestamp,
+          followers: Number(followers),
+          delta: Number(delta),
+        };
+      });
+    }
+
+    function computeStats(history) {
+      if (!history.length) {
+        return { followers: 0, last_delta: 0, last_update: null, total_delta_1h: 0, snapshots_count: 0 };
+      }
+      const last = history[history.length - 1];
+      const oneHourAgo = Date.now() - 60 * 60 * 1000;
+      const total_delta_1h = history
+        .filter((h) => new Date(h.timestamp).getTime() >= oneHourAgo)
+        .reduce((sum, h) => sum + h.delta, 0);
+      return {
+        followers: last.followers,
+        last_delta: last.delta,
+        last_update: last.timestamp,
+        total_delta_1h,
+        snapshots_count: history.length,
+      };
+    }
+
     function floorToBucket(date, intervalMinutes) {
       const d = new Date(date);
       d.setSeconds(0, 0);
@@ -235,9 +255,9 @@ HTML = """<!DOCTYPE html>
         return start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
       }
       const end = new Date(start.getTime() + intervalMinutes * 60000 - 60000);
-      const fmt = (d) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      if (intervalMinutes >= 60) return fmt(start);
-      return fmt(start) + '–' + fmt(end);
+      const fmtTime = (d) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      if (intervalMinutes >= 60) return fmtTime(start);
+      return fmtTime(start) + '–' + fmtTime(end);
     }
 
     function groupHistory(history, intervalMinutes) {
@@ -257,33 +277,21 @@ HTML = """<!DOCTYPE html>
 
     function updateDeltaChart() {
       const grouped = groupHistory(rawHistory, groupMinutes);
-      deltaChart.data.labels = grouped.map(g => formatBucketLabel(g.bucketStart, groupMinutes));
-      deltaChart.data.datasets[0].data = grouped.map(g => g.delta);
+      deltaChart.data.labels = grouped.map((g) => formatBucketLabel(g.bucketStart, groupMinutes));
+      deltaChart.data.datasets[0].data = grouped.map((g) => g.delta);
       deltaChart.update();
       document.getElementById('deltaChartTitle').textContent =
         'Novos seguidores ' + GROUP_LABELS[groupMinutes];
     }
 
-    document.getElementById('groupBtns').addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-group]');
-      if (!btn) return;
-      groupMinutes = parseInt(btn.dataset.group, 10);
-      document.querySelectorAll('#groupBtns button').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      updateDeltaChart();
-    });
     function formatTime(iso) {
-      const d = new Date(iso);
-      return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     }
 
-    async function refresh() {
-      const [stats, history] = await Promise.all([
-        fetch('/api/stats').then(r => r.json()),
-        fetch('/api/history?limit=1440').then(r => r.json())
-      ]);
-
+    function render(history) {
+      const stats = computeStats(history);
       document.getElementById('followers').textContent = fmt(stats.followers);
+
       const deltaEl = document.getElementById('delta');
       deltaEl.textContent = fmtDelta(stats.last_delta);
       deltaEl.className = 'card-value ' + (stats.last_delta >= 0 ? 'positive' : 'negative');
@@ -294,45 +302,40 @@ HTML = """<!DOCTYPE html>
 
       document.getElementById('count').textContent = fmt(stats.snapshots_count);
       document.getElementById('updated').textContent = stats.last_update
-        ? 'Última leitura: ' + new Date(stats.last_update).toLocaleString('pt-BR') + ' — atualiza a cada 30s'
+        ? 'Última leitura: ' + new Date(stats.last_update).toLocaleString('pt-BR') + ' — atualiza a cada 60s'
         : 'Aguardando primeira leitura do bot...';
 
       rawHistory = history;
       updateDeltaChart();
 
-      const labels = history.map(h => formatTime(h.timestamp));
+      const labels = history.map((h) => formatTime(h.timestamp));
       followersChart.data.labels = labels;
-      followersChart.data.datasets[0].data = history.map(h => h.followers);
+      followersChart.data.datasets[0].data = history.map((h) => h.followers);
       followersChart.update();
     }
 
+    document.getElementById('groupBtns').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-group]');
+      if (!btn) return;
+      groupMinutes = parseInt(btn.dataset.group, 10);
+      document.querySelectorAll('#groupBtns button').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateDeltaChart();
+    });
+
+    async function refresh() {
+      try {
+        const res = await fetch(DATA_URL + '?t=' + Date.now());
+        if (!res.ok) throw new Error('CSV não encontrado');
+        const history = parseCsv(await res.text());
+        render(history);
+      } catch (err) {
+        document.getElementById('updated').textContent = 'Erro ao carregar dados: ' + err.message;
+      }
+    }
+
     refresh();
-    setInterval(refresh, 30000);
+    setInterval(refresh, 60000);
   </script>
 </body>
-</html>"""
-
-
-@app.route("/")
-def index():
-    return render_template_string(HTML)
-
-
-@app.route("/api/stats")
-def api_stats():
-    init_db()
-    return jsonify(get_stats())
-
-
-@app.route("/api/history")
-def api_history():
-    from flask import request
-
-    init_db()
-    limit = request.args.get("limit", 1440, type=int)
-    return jsonify(get_history(limit))
-
-
-if __name__ == "__main__":
-    init_db()
-    app.run(host="0.0.0.0", port=8787, debug=False)
+</html>

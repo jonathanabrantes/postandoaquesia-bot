@@ -14,24 +14,33 @@ concurrency:
 
 jobs:
   fetch:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Executar bot
-        run: |
-          if [ ! -d .venv ]; then python3 -m venv .venv; fi
-          .venv/bin/pip install -q -r requirements.txt
-          .venv/bin/python3 bot/fetch.py
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-      - name: Commitar banco atualizado
+      - name: Instalar Chromium
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq chromium-browser chromium-chromedriver
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Executar bot
+        run: python bot/fetch.py
+
+      - name: Commitar CSV atualizado
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/followers.db
+          git add data/followers.csv
           if git diff --staged --quiet; then
-            echo "Sem alterações no banco."
+            echo "Sem alterações no CSV."
           else
-            git commit -m "chore(bot): atualiza followers.db"
+            git commit -m "chore(bot): atualiza followers.csv"
             git push
           fi

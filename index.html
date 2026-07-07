@@ -350,9 +350,27 @@
       margin-top: 2rem;
       font-size: 0.8rem;
       color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
     }
 
     .footer .time { color: #a1a1aa; }
+
+    .views {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .views strong { color: var(--text); font-weight: 600; }
 
     /* Loading shimmer */
     .loading .hero-count {
@@ -455,10 +473,17 @@
     </div>
 
     <p class="footer" id="updated">Carregando dados...</p>
+    <p class="footer">
+      <span class="views" id="views" title="Contagem aproximada de visitas">
+        👁 <strong id="viewCount">—</strong> acessos
+      </span>
+    </p>
   </div>
 
   <script>
     const DATA_URL = 'data/followers.csv';
+    const COUNT_NS = 'postandoaquesia-bot';
+    const COUNT_KEY = 'pageviews';
     const fmt = (n) => n.toLocaleString('pt-BR');
     const fmtDelta = (n) => (n >= 0 ? '+' : '') + fmt(n);
 
@@ -732,6 +757,21 @@
 
     refresh();
     setInterval(refresh, 60000);
+
+    async function trackViews() {
+      try {
+        await fetch(`https://api.countapi.xyz/hit/${COUNT_NS}/${COUNT_KEY}`);
+        const res = await fetch(`https://api.countapi.xyz/get/${COUNT_NS}/${COUNT_KEY}`);
+        const data = await res.json();
+        if (data.value != null) {
+          document.getElementById('viewCount').textContent = data.value.toLocaleString('pt-BR');
+        }
+      } catch {
+        document.getElementById('views').style.display = 'none';
+      }
+    }
+
+    trackViews();
   </script>
 </body>
 </html>

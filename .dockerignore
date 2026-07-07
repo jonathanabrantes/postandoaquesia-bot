@@ -1,9 +1,0 @@
-.git
-.github
-.venv
-__pycache__
-*.pyc
-logs/
-index.html
-data/
-.nojekyll

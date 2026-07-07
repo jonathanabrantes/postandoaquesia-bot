@@ -81,8 +81,9 @@ def create_driver() -> webdriver.Chrome:
 
 
 def fetch_followers(driver: webdriver.Chrome) -> int:
+    driver.set_page_load_timeout(40)
     driver.get(PROFILE_URL)
-    WebDriverWait(driver, 25).until(
+    WebDriverWait(driver, 35).until(
         EC.presence_of_element_located((By.CSS_SELECTOR, "span[title]"))
     )
 
@@ -95,7 +96,7 @@ def fetch_followers(driver: webdriver.Chrome) -> int:
         return None
 
     try:
-        WebDriverWait(driver, 15).until(lambda d: _extract_count() is not None)
+        WebDriverWait(driver, 20).until(lambda d: _extract_count() is not None)
     except TimeoutException:
         pass
 
@@ -124,16 +125,26 @@ def fetch_followers(driver: webdriver.Chrome) -> int:
 
 def main():
     init_csv()
-    driver = None
-    try:
-        driver = create_driver()
-        followers = fetch_followers(driver)
-    except (TimeoutException, WebDriverException, ValueError) as e:
-        print(f"Erro ao buscar seguidores: {e}", file=sys.stderr)
+    last_error = None
+
+    for attempt in range(1, 4):
+        driver = None
+        try:
+            driver = create_driver()
+            followers = fetch_followers(driver)
+            break
+        except (TimeoutException, WebDriverException, ValueError) as e:
+            last_error = e
+            print(f"Tentativa {attempt}/3 falhou: {e}", file=sys.stderr)
+            if attempt == 3:
+                print(f"Erro ao buscar seguidores: {e}", file=sys.stderr)
+                sys.exit(1)
+        finally:
+            if driver:
+                driver.quit()
+    else:
+        print(f"Erro ao buscar seguidores: {last_error}", file=sys.stderr)
         sys.exit(1)
-    finally:
-        if driver:
-            driver.quit()
 
     last = get_last_snapshot()
     delta = followers - last["followers"] if last else 0

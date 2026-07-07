@@ -474,16 +474,14 @@
 
     <p class="footer" id="updated">Carregando dados...</p>
     <p class="footer">
-      <span class="views" id="views" title="Contagem aproximada de visitas">
-        👁 <strong id="viewCount">—</strong> acessos
+      <span class="views" id="views" title="Leituras registradas pelo bot">
+        📡 <strong id="viewCount">—</strong> leituras
       </span>
     </p>
   </div>
 
   <script>
     const DATA_URL = 'data/followers.csv';
-    const COUNT_NS = 'postandoaquesia-bot';
-    const COUNT_KEY = 'pageviews';
     const fmt = (n) => n.toLocaleString('pt-BR');
     const fmtDelta = (n) => (n >= 0 ? '+' : '') + fmt(n);
 
@@ -704,6 +702,7 @@
         document.getElementById('empty').classList.add('show');
         document.getElementById('dashboard').classList.add('hidden');
         document.getElementById('liveBadge').style.display = 'none';
+        document.getElementById('viewCount').textContent = '0';
         return;
       }
 
@@ -760,11 +759,11 @@
 
     async function trackViews() {
       try {
-        await fetch(`https://api.countapi.xyz/hit/${COUNT_NS}/${COUNT_KEY}`);
-        const res = await fetch(`https://api.countapi.xyz/get/${COUNT_NS}/${COUNT_KEY}`);
+        const url = `${HITS_API}?url=${encodeURIComponent(PAGE_URL)}&title=0&time=1`;
+        const res = await fetch(url);
         const data = await res.json();
-        if (data.value != null) {
-          document.getElementById('viewCount').textContent = data.value.toLocaleString('pt-BR');
+        if (data?.totalHits != null) {
+          document.getElementById('viewCount').textContent = data.totalHits.toLocaleString('pt-BR');
         }
       } catch {
         document.getElementById('views').style.display = 'none';

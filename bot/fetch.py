@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
-import json
 import os
 import re
 import shutil
 import sys
-import time
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 from selenium import webdriver
@@ -23,15 +19,7 @@ from data_store import append_snapshot, get_last_snapshot, init_csv
 
 USERNAME = "postandoaquesia"
 PROFILE_URL = f"https://www.instagram.com/{USERNAME}/"
-API_URL = f"https://www.instagram.com/api/v1/users/web_profile_info/?username={USERNAME}"
 COOKIES_FILE = Path(__file__).parent.parent / ".cookies"
-API_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    ),
-    "x-ig-app-id": "936619743392459",
-}
 
 CHROME_CANDIDATES = (
     "/usr/bin/chromium-browser",
@@ -71,24 +59,6 @@ def parse_cookie_pairs(cookie_header: str) -> dict[str, str]:
             name, value = part.split("=", 1)
             pairs[name.strip()] = value.strip()
     return pairs
-
-
-def api_headers() -> dict[str, str]:
-    headers = dict(API_HEADERS)
-    cookie_header = load_cookie_header()
-    if cookie_header:
-        headers["Cookie"] = cookie_header
-        csrf = parse_cookie_pairs(cookie_header).get("csrftoken")
-        if csrf:
-            headers["X-CSRFToken"] = csrf
-    return headers
-
-
-def fetch_followers_api() -> int:
-    req = urllib.request.Request(API_URL, headers=api_headers())
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        data = json.loads(resp.read().decode())
-    return data["data"]["user"]["edge_followed_by"]["count"]
 
 
 def _first_existing(paths: tuple[str, ...]) -> str | None:
@@ -135,7 +105,7 @@ def inject_cookies(driver: webdriver.Chrome) -> None:
         driver.add_cookie({"name": name, "value": value, "domain": ".instagram.com"})
 
 
-def fetch_followers_selenium(driver: webdriver.Chrome) -> int:
+def fetch_followers(driver: webdriver.Chrome) -> int:
     inject_cookies(driver)
     driver.set_page_load_timeout(40)
     driver.get(PROFILE_URL)
@@ -173,48 +143,27 @@ def fetch_followers_selenium(driver: webdriver.Chrome) -> int:
     raise ValueError("Não foi possível extrair a contagem de seguidores")
 
 
-def fetch_followers() -> int:
-    for attempt in range(1, 4):
-        try:
-            count = fetch_followers_api()
-            print("Fonte: API", file=sys.stderr)
-            return count
-        except urllib.error.HTTPError as e:
-            if e.code == 429 and attempt < 3:
-                wait = 15 * attempt
-                print(f"API rate limit, aguardando {wait}s...", file=sys.stderr)
-                time.sleep(wait)
-                continue
-            print(f"API falhou ({e}), tentando Selenium...", file=sys.stderr)
-            break
-        except (urllib.error.URLError, KeyError, json.JSONDecodeError, TimeoutError) as e:
-            print(f"API falhou ({e}), tentando Selenium...", file=sys.stderr)
-            break
-
+def main():
+    init_csv()
     last_error = None
-    for attempt in range(1, 3):
+
+    for attempt in range(1, 4):
         driver = None
         try:
             driver = create_driver()
-            count = fetch_followers_selenium(driver)
-            print(f"Fonte: Selenium (tentativa {attempt})", file=sys.stderr)
-            return count
+            followers = fetch_followers(driver)
+            break
         except (TimeoutException, WebDriverException, ValueError) as e:
             last_error = e
-            print(f"Selenium {attempt}/2 falhou: {e}", file=sys.stderr)
+            print(f"Tentativa {attempt}/3 falhou: {e}", file=sys.stderr)
+            if attempt == 3:
+                print(f"Erro ao buscar seguidores: {e}", file=sys.stderr)
+                sys.exit(1)
         finally:
             if driver:
                 driver.quit()
-
-    raise RuntimeError(f"Todas as fontes falharam: {last_error}")
-
-
-def main():
-    init_csv()
-    try:
-        followers = fetch_followers()
-    except RuntimeError as e:
-        print(f"Erro ao buscar seguidores: {e}", file=sys.stderr)
+    else:
+        print(f"Erro ao buscar seguidores: {last_error}", file=sys.stderr)
         sys.exit(1)
 
     last = get_last_snapshot()

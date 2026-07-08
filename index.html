@@ -425,7 +425,7 @@
           <div class="stat-icon">⚡</div>
           <div class="stat-label">Última leitura</div>
           <div class="stat-value" id="delta">—</div>
-          <div class="stat-hint">taxa por minuto</div>
+          <div class="stat-hint">desde o minuto anterior</div>
         </div>
         <div class="stat">
           <div class="stat-icon">🕐</div>
@@ -555,10 +555,7 @@
             ...chartBase.plugins.tooltip,
             callbacks: {
               title: (items) => items[0]?.label || '',
-              label: (ctx) => {
-                const val = Math.round(ctx.parsed.y);
-                return fmtDelta(val) + ' seguidores' + (groupMinutes === 1 ? '/min' : '');
-              },
+              label: (ctx) => fmtDelta(ctx.parsed.y) + ' seguidores',
             }
           }
         }
@@ -614,67 +611,18 @@
       });
     }
 
-    function distributeGrowth(prev, curr) {
-      const tPrev = new Date(prev.timestamp).getTime();
-      const tCurr = new Date(curr.timestamp).getTime();
-      const elapsedMs = tCurr - tPrev;
-      const growth = curr.followers - prev.followers;
-
-      if (growth === 0) return [{ time: tCurr, delta: 0 }];
-
-      const elapsedMinutes = Math.max(1, Math.round(elapsedMs / 60000));
-      if (elapsedMinutes === 1) return [{ time: tCurr, delta: growth }];
-
-      const perMin = growth / elapsedMinutes;
-      let allocated = 0;
-      const points = [];
-      for (let i = 0; i < elapsedMinutes; i++) {
-        const isLast = i === elapsedMinutes - 1;
-        const delta = isLast ? growth - allocated : Math.round(perMin);
-        allocated += delta;
-        const frac = (i + 1) / elapsedMinutes;
-        points.push({ time: tPrev + elapsedMs * frac, delta });
-      }
-      return points;
-    }
-
-    function buildDeltaBuckets(history, mins) {
-      const buckets = new Map();
-      for (let i = 1; i < history.length; i++) {
-        for (const point of distributeGrowth(history[i - 1], history[i])) {
-          const b = floorToBucket(point.time, mins);
-          const k = b.getTime();
-          if (!buckets.has(k)) buckets.set(k, { bucketStart: b.toISOString(), delta: 0 });
-          buckets.get(k).delta += point.delta;
-        }
-      }
-      return [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
-    }
-
-    function growthBetween(prev, curr) {
-      const elapsedSec = (new Date(curr.timestamp) - new Date(prev.timestamp)) / 1000;
-      const growth = curr.followers - prev.followers;
-      if (elapsedSec <= 90) return growth;
-      const minutes = Math.max(1, Math.round(elapsedSec / 60000));
-      return Math.round(growth / minutes);
-    }
-
     function computeStats(history) {
       if (!history.length) return null;
       const last = history[history.length - 1];
       const oneHourAgo = Date.now() - 3600000;
-      const inLastHour = history.filter((h) => new Date(h.timestamp).getTime() >= oneHourAgo);
-      const total_delta_1h = inLastHour.length >= 2
-        ? inLastHour[inLastHour.length - 1].followers - inLastHour[0].followers
-        : 0;
+      const total_delta_1h = history
+        .filter((h) => new Date(h.timestamp).getTime() >= oneHourAgo)
+        .reduce((s, h) => s + h.delta, 0);
       const first = history[0];
       const totalGrowth = last.followers - first.followers;
-      const last_delta = history.length >= 2
-        ? growthBetween(history[history.length - 2], last)
-        : last.delta;
       return {
         followers: last.followers,
-        last_delta,
+        last_delta: last.delta,
         last_update: last.timestamp,
         total_delta_1h,
         totalGrowth,
@@ -701,7 +649,14 @@
     }
 
     function groupHistory(history, mins) {
-      return buildDeltaBuckets(history, mins);
+      const buckets = new Map();
+      for (const h of history) {
+        const b = floorToBucket(h.timestamp, mins);
+        const k = b.getTime();
+        if (!buckets.has(k)) buckets.set(k, { bucketStart: b.toISOString(), delta: 0 });
+        buckets.get(k).delta += h.delta;
+      }
+      return [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
     }
 
     function setDeltaEl(el, val) {
@@ -730,7 +685,7 @@
     }
 
     function updateDeltaChart() {
-      const grouped = buildDeltaBuckets(rawHistory, groupMinutes);
+      const grouped = groupHistory(rawHistory, groupMinutes);
       deltaChart.data.labels = grouped.map((g) => formatBucketLabel(g.bucketStart, groupMinutes));
       deltaChart.data.datasets[0].data = grouped.map((g) => g.delta);
       deltaChart.update('none');
@@ -760,7 +715,7 @@
 
       const sub = document.getElementById('heroSub');
       const dClass = stats.last_delta >= 0 ? 'up' : 'down';
-      sub.innerHTML = `<strong class="${dClass}">${fmtDelta(stats.last_delta)}</strong>/min na última leitura`
+      sub.innerHTML = `<strong class="${dClass}">${fmtDelta(stats.last_delta)}</strong> na última leitura`
         + (stats.totalGrowth ? ` · <strong>${fmtDelta(stats.totalGrowth)}</strong> desde o início` : '');
 
       setDeltaEl(document.getElementById('delta'), stats.last_delta);

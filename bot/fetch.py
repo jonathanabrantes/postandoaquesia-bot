@@ -15,7 +15,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from data_store import append_snapshot, get_last_snapshot, init_csv
+from data_store import append_snapshots, get_last_snapshot, init_csv
 
 USERNAME = "postandoaquesia"
 PROFILE_URL = f"https://www.instagram.com/{USERNAME}/"
@@ -167,11 +167,11 @@ def main():
         sys.exit(1)
 
     last = get_last_snapshot()
-    delta = followers - last["followers"] if last else 0
-    ts = append_snapshot(followers, delta)
+    growth = followers - last["followers"] if last else 0
+    ts = append_snapshots(followers)
 
-    sign = "+" if delta >= 0 else ""
-    print(f"[{ts}] @{USERNAME}: {followers:,} seguidores ({sign}{delta})")
+    sign = "+" if growth >= 0 else ""
+    print(f"[{ts}] @{USERNAME}: {followers:,} seguidores ({sign}{growth})")
 
 
 if __name__ == "__main__":
